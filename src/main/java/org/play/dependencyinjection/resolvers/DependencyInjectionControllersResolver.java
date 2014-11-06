@@ -24,6 +24,12 @@ public class DependencyInjectionControllersResolver {
 
 
 	/**
+	 * Prevents instantiation from external entities
+	 */
+	private DependencyInjectionControllersResolver() {}
+
+
+	/**
 	 * Singleton pattern
 	 */
 	public static DependencyInjectionControllersResolver instance() {
@@ -79,7 +85,7 @@ public class DependencyInjectionControllersResolver {
 	 * 
 	 * @param controllerClazz
 	 *    Class of current controller
-	 *    
+	 * 
 	 * @throws DependencyInjectionException
 	 */
 	@SuppressWarnings("unchecked")

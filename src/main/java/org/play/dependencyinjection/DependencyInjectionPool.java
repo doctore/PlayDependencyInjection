@@ -24,6 +24,12 @@ public class DependencyInjectionPool {
 
 
 	/**
+	 * Prevents instantiation from external entities
+	 */
+	private DependencyInjectionPool() {}
+
+
+	/**
 	 * Singleton pattern
 	 */
 	public static DependencyInjectionPool instance() {
@@ -62,7 +68,7 @@ public class DependencyInjectionPool {
 	 *    Package name that stores the implementation of {@link Controller}s
 	 * @param parentControllerClazz
 	 *    Class to which all controllers must belong
-	 *     
+	 * 
 	 * @throws DependencyInjectionException
 	 */
 	public <T> void initializeControllersResolver (final String controllersPackage, final Class<T> parentControllerClazz)
@@ -86,7 +92,7 @@ public class DependencyInjectionPool {
 	 * 
 	 * @param interfacesPackage
 	 *    Package name that stores the "injectable interfaces"
-	 *    
+	 *
 	 * @return {@link DependencyInjectionResolver}
 	 * 
 	 * @throws DependencyInjectionException
