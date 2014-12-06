@@ -27,7 +27,7 @@ Below is shown a brief introduction to the components included in this project:
 ### Classes
 
 * **DependencyInjectionResolver**: main class that manages the dependency injection.
-* **DependencyInjectionControllersResolver**: manages the dependency injection inside the {@link Controller} objects.
+* **DependencyInjectionControllersResolver**: manages the dependency injection inside a controller class.
 * **DependencyInjectionPool**: pool that manages all dependency injection resolvers.
 
 ## Basic use case
