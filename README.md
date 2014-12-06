@@ -1,10 +1,10 @@
 # Play dependency injection
 
-- [Why this project was created?](#whyWasCreated)
-- [Elements included in this project](#elementsIncluded)
-    - [Annotations](#annotationsIncluded)
-    - [Classes](#classesIncluded)
-- [Basic use case](#basicUseCase)
+- [Why this project was created?](#why-this-project-was-created?)
+- [Elements included in this project](#elements-included-in-this-project)
+    - [Annotations](#annotations)
+    - [Classes](#classes)
+- [Basic use case](#basic-use-case)
 
 ## Why this project was created?
 
