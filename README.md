@@ -105,7 +105,7 @@ public class Global extends GlobalSettings {
       try {
          // Initializes the dependency injection
          DependencyInjectionPool.instance().addNewResolver (new DependencyInjectionResolver ("daos.spi", "daos.impl"))
-                                           .initializeControllersResolver (controllers, Controller.class);
+                                           .initializeControllersResolver ("controllers", Controller.class);
 
       } catch (DependencyInjectionException e) {
          Logger.error ("Error when initializes the dependency injection", e);
