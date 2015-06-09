@@ -31,12 +31,4 @@ public class DependencyInjectionControllersResolverTest {
 				                                               ,ParentController.class);
     }
 
-
-	@Test(expected=DependencyInjectionException.class)
-    public void initializeWithPropertyWithoutImplementationTest() throws DependencyInjectionException {
-
-		DependencyInjectionControllersResolver.instance().init (Constants.controllerWithPropertyWithoutImplPath
-				                                               ,ParentController.class);
-    }
-
 }

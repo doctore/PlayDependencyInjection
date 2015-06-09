@@ -6,6 +6,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
+import org.play.dependencyinjection.annotations.DependencyInjectionQualifier;
 import org.play.dependencyinjection.exceptions.DependencyInjectionException;
 import org.play.dependencyinjection.resources.Constants;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.crossReferences.impl.ImplementationCrossReferencesOne;
@@ -17,6 +18,9 @@ import org.play.dependencyinjection.resources.dependencyInjectionLayer.different
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.differentBranches.impl.ImplementationDifferentBranchesTwo;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.differentBranches.spi.ITestInterfaceDifferentBranchesOne;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.differentBranches.spi.ITestInterfaceDifferentBranchesTwo;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.impl.ImplementationManyImplementationsWithoutSameQualifierOne;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.impl.ImplementationManyImplementationsWithoutSameQualifierTwo;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.spi.ITestInterfaceManyImplementationsWithoutSameQualifier;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.nested.impl.ImplementationNested;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.nested.spi.ITestInterfaceNested;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.simple.alt.ImplementationSimpleAlt;
@@ -67,14 +71,47 @@ public class DependencyInjectionResolverTest {
 	@Test(expected=DependencyInjectionException.class)
     public void testingInterfaceWithoutImplementationTest() throws DependencyInjectionException {
 
-		new DependencyInjectionResolver (Constants.withoutImplDILInterfacesPath, Constants.withoutImplDILImplementationPath);
+		new DependencyInjectionResolver (Constants.withoutImplementationDILInterfacesPath, Constants.withoutImplementationDILImplementationPath);
     }
 
 
 	@Test(expected=DependencyInjectionException.class)
-    public void testingInterfaceManyImplementationTest() throws DependencyInjectionException {
+    public void testingInterfaceManyImplementationWithoutQualifierTest() throws DependencyInjectionException {
 
-		new DependencyInjectionResolver (Constants.manyImplDILInterfacesPath, Constants.manyImplDILImplementationPath);
+		new DependencyInjectionResolver (Constants.manyImplementationsWithoutQualifierDILInterfacesPath
+				                        ,Constants.manyImplementationsWithoutQualifierDILImplementationPath);
+    }
+
+
+	@Test(expected=DependencyInjectionException.class)
+    public void testingInterfaceManyImplementationWithSameQualifierTest() throws DependencyInjectionException {
+
+		new DependencyInjectionResolver (Constants.manyImplementationsWithSameQualifierDILInterfacesPath
+				                        ,Constants.manyImplementationsWithSameQualifierDILImplementationPath);
+    }
+
+
+	@Test
+    public void testingInterfaceManyImplementationWithoutSameQualifierTest() throws DependencyInjectionException {
+
+		DependencyInjectionResolver resolver = new DependencyInjectionResolver (Constants.manyImplementationsWithoutSameQualifierDILInterfacesPath
+				                                                               ,Constants.manyImplementationsWithoutSameQualifierDILImplementationPath);
+		assertNotNull (resolver);
+		assertNotNull (resolver.getInterfacesPackage());
+		assertTrue (resolver.getInterfacesPackage().equals (Constants.manyImplementationsWithoutSameQualifierDILInterfacesPath));
+
+		assertNotNull (resolver.getImplementation (ITestInterfaceManyImplementationsWithoutSameQualifier.class, null));
+		assertEquals (new ImplementationManyImplementationsWithoutSameQualifierTwo().testInterfaceManyImplementationsWithoutSameQualifier()
+				     ,resolver.getImplementation (ITestInterfaceManyImplementationsWithoutSameQualifier.class, null).testInterfaceManyImplementationsWithoutSameQualifier());
+
+		String qualifierValue = null;
+		DependencyInjectionQualifier annotation = (DependencyInjectionQualifier)ImplementationManyImplementationsWithoutSameQualifierOne.class.getAnnotation (DependencyInjectionQualifier.class);
+		if (annotation != null)
+			qualifierValue = annotation.value();
+
+		assertNotNull (resolver.getImplementation (ITestInterfaceManyImplementationsWithoutSameQualifier.class, qualifierValue));
+		assertEquals (new ImplementationManyImplementationsWithoutSameQualifierOne().testInterfaceManyImplementationsWithoutSameQualifier()
+				     ,resolver.getImplementation (ITestInterfaceManyImplementationsWithoutSameQualifier.class, qualifierValue).testInterfaceManyImplementationsWithoutSameQualifier());
     }
 
 
@@ -84,12 +121,13 @@ public class DependencyInjectionResolverTest {
 		DependencyInjectionResolver resolver = new DependencyInjectionResolver (Constants.simpleDILInterfacesPath
 				                                                               ,Constants.simpleDILImplementationPath
 				                                                               ,ITestInterfaceSimple.class);
+		assertNotNull (resolver);
 		assertNotNull (resolver.getInterfacesPackage());
 		assertTrue (resolver.getInterfacesPackage().equals (Constants.simpleDILInterfacesPath));
-		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class));
+		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class, null));
 
 		assertEquals (new ImplementationSimple().testSimpleInterface(),
-				      resolver.getImplementation (ITestInterfaceSimple.class).testSimpleInterface());
+				      resolver.getImplementation (ITestInterfaceSimple.class, null).testSimpleInterface());
     }
 
 
@@ -98,12 +136,13 @@ public class DependencyInjectionResolverTest {
 
 		DependencyInjectionResolver resolver = new DependencyInjectionResolver (Constants.simpleDILInterfacesPath
 				                                                               ,Constants.simpleDILImplementationPath);
+		assertNotNull (resolver);
 		assertNotNull (resolver.getInterfacesPackage());
 		assertTrue (resolver.getInterfacesPackage().equals (Constants.simpleDILInterfacesPath));
-		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class));
+		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class, null));
 
 		assertEquals (new ImplementationSimple().testSimpleInterface(),
-				      resolver.getImplementation (ITestInterfaceSimple.class).testSimpleInterface());
+				      resolver.getImplementation (ITestInterfaceSimple.class, null).testSimpleInterface());
     }
 
 
@@ -113,21 +152,21 @@ public class DependencyInjectionResolverTest {
 		DependencyInjectionResolver resolver = new DependencyInjectionResolver (Constants.simpleDILInterfacesPath
 				                                                               ,Constants.simpleDILImplementationPath
 				                                                               ,ITestInterfaceSimple.class);
-
-		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class));
-		assertTrue (resolver.getImplementation (ITestInterfaceSimple.class).getClass() == ImplementationSimple.class);
-		assertFalse (resolver.getImplementation (ITestInterfaceSimple.class).getClass() == ImplementationSimpleAlt.class);
+		assertNotNull (resolver);
+		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class, null));
+		assertTrue (resolver.getImplementation (ITestInterfaceSimple.class, null).getClass() == ImplementationSimple.class);
+		assertFalse (resolver.getImplementation (ITestInterfaceSimple.class, null).getClass() == ImplementationSimpleAlt.class);
 
 		assertEquals (new ImplementationSimple().testSimpleInterface(),
-				      resolver.getImplementation (ITestInterfaceSimple.class).testSimpleInterface());
+				      resolver.getImplementation (ITestInterfaceSimple.class, null).testSimpleInterface());
 
 		// Binds to the "alternative implementation"
 		resolver.bind (ITestInterfaceSimple.class, ImplementationSimpleAlt.class);
-		assertFalse (resolver.getImplementation (ITestInterfaceSimple.class).getClass() == ImplementationSimple.class);
-		assertTrue (resolver.getImplementation (ITestInterfaceSimple.class).getClass() == ImplementationSimpleAlt.class);
+		assertFalse (resolver.getImplementation (ITestInterfaceSimple.class, null).getClass() == ImplementationSimple.class);
+		assertTrue (resolver.getImplementation (ITestInterfaceSimple.class, null).getClass() == ImplementationSimpleAlt.class);
 
 		assertEquals (new ImplementationSimpleAlt().testSimpleInterface(),
-				      resolver.getImplementation (ITestInterfaceSimple.class).testSimpleInterface());
+				      resolver.getImplementation (ITestInterfaceSimple.class, null).testSimpleInterface());
     }
 
 
@@ -138,16 +177,16 @@ public class DependencyInjectionResolverTest {
 
 		resolver.bind (ITestInterfaceNested.class, ImplementationNested.class)
 		        .bind (ITestInterfaceSimple.class, ImplementationSimpleAlt.class)
-                .resolveDependenciesOfInterface (ITestInterfaceNested.class);
+                .resolveDependenciesOfInterface (ITestInterfaceNested.class, null);
 
-		assertNotNull (resolver.getImplementation (ITestInterfaceNested.class));
-		assertTrue (resolver.getImplementation (ITestInterfaceNested.class).getClass() == ImplementationNested.class);
+		assertNotNull (resolver.getImplementation (ITestInterfaceNested.class, null));
+		assertTrue (resolver.getImplementation (ITestInterfaceNested.class, null).getClass() == ImplementationNested.class);
 
-		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class));
-		assertTrue (resolver.getImplementation (ITestInterfaceSimple.class).getClass() == ImplementationSimpleAlt.class);
+		assertNotNull (resolver.getImplementation (ITestInterfaceSimple.class, null));
+		assertTrue (resolver.getImplementation (ITestInterfaceSimple.class, null).getClass() == ImplementationSimpleAlt.class);
 
 		assertEquals ("testNestedInterface" + " / " + new ImplementationSimpleAlt().testSimpleInterface(),
-			          resolver.getImplementation (ITestInterfaceNested.class).testInterfaceNested());
+			          resolver.getImplementation (ITestInterfaceNested.class, null).testInterfaceNested());
     }
 
 
@@ -159,23 +198,23 @@ public class DependencyInjectionResolverTest {
 				                                                               ,IInterfaceCrossReferences.class);
 		resolver.resolveAllClassPropertiesOfImplementations();
 
-		assertNotNull (resolver.getImplementation (ITestInterfaceCrossReferencesOne.class));
-		assertNotNull (resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class));
+		assertNotNull (resolver.getImplementation (ITestInterfaceCrossReferencesOne.class, null));
+		assertNotNull (resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class, null));
 
-		assertTrue (resolver.getImplementation (ITestInterfaceCrossReferencesOne.class).getClass() == ImplementationCrossReferencesOne.class);
-		assertTrue (resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class).getClass() == ImplementationCrossReferencesTwo.class);
-
-		assertEquals (new ImplementationCrossReferencesOne().testInterfaceCrossReferencesOne(),
-				      resolver.getImplementation (ITestInterfaceCrossReferencesOne.class).testInterfaceCrossReferencesOne());
+		assertTrue (resolver.getImplementation (ITestInterfaceCrossReferencesOne.class, null).getClass() == ImplementationCrossReferencesOne.class);
+		assertTrue (resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class, null).getClass() == ImplementationCrossReferencesTwo.class);
 
 		assertEquals (new ImplementationCrossReferencesOne().testInterfaceCrossReferencesOne(),
-			          resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class).testCallCrossReferencesOne());
+				      resolver.getImplementation (ITestInterfaceCrossReferencesOne.class, null).testInterfaceCrossReferencesOne());
+
+		assertEquals (new ImplementationCrossReferencesOne().testInterfaceCrossReferencesOne(),
+			          resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class, null).testCallCrossReferencesOne());
 
 		assertEquals (new ImplementationCrossReferencesTwo().testInterfaceCrossReferencesTwo(),
-			          resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class).testInterfaceCrossReferencesTwo());
+			          resolver.getImplementation (ITestInterfaceCrossReferencesTwo.class, null).testInterfaceCrossReferencesTwo());
 
 		assertEquals (new ImplementationCrossReferencesTwo().testInterfaceCrossReferencesTwo(),
-			          resolver.getImplementation (ITestInterfaceCrossReferencesOne.class).testCallCrossReferencesTwo());
+			          resolver.getImplementation (ITestInterfaceCrossReferencesOne.class, null).testCallCrossReferencesTwo());
 	}
 
 
@@ -190,17 +229,17 @@ public class DependencyInjectionResolverTest {
                                                                                   ,Constants.differentBranchesDILImplementationPath
                                                                                   ,ITestInterfaceDifferentBranchesTwo.class);
 
-		assertNotNull (resolverOne.getImplementation (ITestInterfaceDifferentBranchesOne.class));
-		assertNotNull (resolverTwo.getImplementation (ITestInterfaceDifferentBranchesTwo.class));
+		assertNotNull (resolverOne.getImplementation (ITestInterfaceDifferentBranchesOne.class, null));
+		assertNotNull (resolverTwo.getImplementation (ITestInterfaceDifferentBranchesTwo.class, null));
 
-		assertTrue (resolverOne.getImplementation (ITestInterfaceDifferentBranchesOne.class).getClass() == ImplementationDifferentBranchesOne.class);
-		assertTrue (resolverTwo.getImplementation (ITestInterfaceDifferentBranchesTwo.class).getClass() == ImplementationDifferentBranchesTwo.class);
+		assertTrue (resolverOne.getImplementation (ITestInterfaceDifferentBranchesOne.class, null).getClass() == ImplementationDifferentBranchesOne.class);
+		assertTrue (resolverTwo.getImplementation (ITestInterfaceDifferentBranchesTwo.class, null).getClass() == ImplementationDifferentBranchesTwo.class);
 
 		assertEquals (new ImplementationDifferentBranchesOne().testInterfaceDifferentBranchesOne(),
-				      resolverOne.getImplementation (ITestInterfaceDifferentBranchesOne.class).testInterfaceDifferentBranchesOne());
+				      resolverOne.getImplementation (ITestInterfaceDifferentBranchesOne.class, null).testInterfaceDifferentBranchesOne());
 
 		assertEquals (new ImplementationDifferentBranchesTwo().testInterfaceDifferentBranchesTwo(),
-			          resolverTwo.getImplementation (ITestInterfaceDifferentBranchesTwo.class).testInterfaceDifferentBranchesTwo());
+			          resolverTwo.getImplementation (ITestInterfaceDifferentBranchesTwo.class, null).testInterfaceDifferentBranchesTwo());
 	}
 
 }

@@ -1,0 +1,14 @@
+package org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutQualifier.impl;
+
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutQualifier.spi.ITestInterfaceManyImplementationsWithoutQualifier;
+
+public class ImplementationManyImplementationsWithoutQualifierTwo implements ITestInterfaceManyImplementationsWithoutQualifier {
+
+
+	@Override
+	public String testInterfaceManyImplementationsWithoutQualifier() {
+
+		return "testManyImplementationsWithoutQualifierInterface Two";
+	}
+
+}

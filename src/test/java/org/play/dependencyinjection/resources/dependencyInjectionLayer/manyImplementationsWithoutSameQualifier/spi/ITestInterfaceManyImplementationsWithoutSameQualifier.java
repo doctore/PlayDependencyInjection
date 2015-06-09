@@ -1,0 +1,10 @@
+package org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.spi;
+
+import org.play.dependencyinjection.annotations.Injectable;
+
+@Injectable
+public interface ITestInterfaceManyImplementationsWithoutSameQualifier extends IInterfaceManyImplementationsWithoutSameQualifier {
+
+	public String testInterfaceManyImplementationsWithoutSameQualifier();
+
+}

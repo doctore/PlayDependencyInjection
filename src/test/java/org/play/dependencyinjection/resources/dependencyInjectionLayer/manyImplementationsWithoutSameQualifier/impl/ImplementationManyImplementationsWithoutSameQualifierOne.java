@@ -1,0 +1,16 @@
+package org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.impl;
+
+import org.play.dependencyinjection.annotations.DependencyInjectionQualifier;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.spi.ITestInterfaceManyImplementationsWithoutSameQualifier;
+
+@DependencyInjectionQualifier("implementationOne")
+public class ImplementationManyImplementationsWithoutSameQualifierOne implements ITestInterfaceManyImplementationsWithoutSameQualifier {
+
+
+	@Override
+	public String testInterfaceManyImplementationsWithoutSameQualifier() {
+
+		return "testManyImplementationsWithoutSameQualifierInterface One";
+	}
+
+}

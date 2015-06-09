@@ -1,0 +1,3 @@
+package org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.spi;
+
+public interface IInterfaceManyImplementationsWithoutSameQualifier { }

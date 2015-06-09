@@ -17,14 +17,21 @@ public class Constants {
 	public static final String nestedDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.nested.spi";
 	public static final String nestedDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.nested.impl";
 
-	public static final String manyImplDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImpl.spi";
-	public static final String manyImplDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImpl.impl";
+	public static final String manyImplementationsWithoutQualifierDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutQualifier.spi";
+	public static final String manyImplementationsWithoutQualifierDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutQualifier.impl";
 
-	public static final String withoutImplDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.withoutImpl.spi";
-	public static final String withoutImplDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.withoutImpl.impl";
-	
+	public static final String manyImplementationsWithoutSameQualifierDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.spi";
+	public static final String manyImplementationsWithoutSameQualifierDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.impl";
+
+	public static final String manyImplementationsWithSameQualifierDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithSameQualifier.spi";
+	public static final String manyImplementationsWithSameQualifierDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithSameQualifier.impl";
+
+	public static final String withoutImplementationDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.withoutImplementation.spi";
+	public static final String withoutImplementationDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.withoutImplementationl.impl";
+
 	// Dependency Injection Layer
-	public static final String controllerSimplePath                  = "org.play.dependencyinjection.resources.controllers.simple";
-	public static final String controllerWithPropertyWithoutImplPath = "org.play.dependencyinjection.resources.controllers.withPropertyWithoutImpl";
+	public static final String controllerSimplePath                             = "org.play.dependencyinjection.resources.controllers.simple";
+	public static final String controllerWithPropertyWithoutImplementationPath  = "org.play.dependencyinjection.resources.controllers.withPropertyWithoutImplementation";
+	public static final String controllerWithPropertiesWithoutSameQualifierPath = "org.play.dependencyinjection.resources.controllers.withPropertiesWithoutSameQualifier";
 
 }

@@ -9,6 +9,7 @@ import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 import org.play.dependencyinjection.DependencyInjectionPool;
+import org.play.dependencyinjection.annotations.DependencyInjectionQualifier;
 import org.play.dependencyinjection.annotations.Injectable;
 import org.play.dependencyinjection.annotations.WithDependencyInjection;
 import org.play.dependencyinjection.exceptions.DependencyInjectionException;
@@ -24,6 +25,11 @@ import org.reflections.util.FilterBuilder;
  * Main class that manages the dependency injection.
  */
 public class DependencyInjectionResolver {
+
+	/**
+	 * Use to separate the parts of a "composed string"
+	 */
+	private static String separator = "-";
 
 	/**
 	 * Stores the equivalence between interfaces and implementations
@@ -97,28 +103,8 @@ public class DependencyInjectionResolver {
 
 		this.interfacesPackage = interfacesPackage;
 
-		// Get "injectable interfaces"
-		Reflections interfaceReflections = new Reflections (new ConfigurationBuilder()
-                                                               .filterInputsBy (new FilterBuilder().includePackage (interfacesPackage))
-                                                               .setUrls (ClasspathHelper.forPackage (interfacesPackage))
-                                                               .setScanners (new SubTypesScanner()
-                                                                            ,new TypeAnnotationsScanner())
-                                                                .setExecutorService (Executors.newFixedThreadPool (2)));
-
-		Set<Class<?>> interfaceClasses   = interfaceReflections.getTypesAnnotatedWith (Injectable.class);
-
-		// Filter by the interface indicated as parameter 
-		if (interfaceToResolve != null) {
-
-			boolean flagContainsInterfaceToResolve = false;
-			if (interfaceClasses.contains (interfaceToResolve))
-				flagContainsInterfaceToResolve = true;
-
-			interfaceClasses.retainAll (interfaceReflections.getSubTypesOf (interfaceToResolve));
-			if (flagContainsInterfaceToResolve)
-				interfaceClasses.add (interfaceToResolve);
-		}
-
+		// Gets classes of interfaces with Injectable annotation
+		Set<Class<?>> interfaceClasses = getInterfaceClassesWithInjectableAnnotation (interfaceToResolve);
 		if (interfaceClasses != null) {
 
 			// Gets implementations
@@ -129,23 +115,28 @@ public class DependencyInjectionResolver {
                                                                                      ,new TypeAnnotationsScanner())
                                                                         .setExecutorService (Executors.newFixedThreadPool (2)));
 			// Links the interface with its implementation
-			for (Class<?> interfaceClass : interfaceClasses) {
+			for (Class<?> interfaceClazz : interfaceClasses) {
 
-				Set<?> implementationClasses = implementationReflections.getSubTypesOf (interfaceClass);
+				Set<?> implementationClasses = implementationReflections.getSubTypesOf (interfaceClazz);
 				if (implementationClasses == null || implementationClasses.isEmpty())
-					throw new DependencyInjectionException ("The interface " + interfaceClass.getCanonicalName()
+					throw new DependencyInjectionException ("The interface " + interfaceClazz.getCanonicalName()
                                                           + " has not an implementation");
-				if (implementationClasses.size() > 1)
-					throw new DependencyInjectionException ("The interface " + interfaceClass.getCanonicalName()
-                                                          + " has more than one implementation");
 
 				// Insert in the "equivalence Map": interface -> implementation
 				for (Object implementationClass : implementationClasses) {
 
 					try {
-						Class<?> concreteClass = Class.forName (implementationClass.toString().replace("class ", ""));
+						Class<?> implementationClazz = Class.forName (implementationClass.toString().replace("class ", ""));
 
-						interfaceImplementationEquivalence.put (interfaceClass.getCanonicalName(), concreteClass.newInstance());
+						String keyValue = buildKeyInInterfaceImplementationEquivalence (interfaceClazz
+								                                                       ,getQualifierValueInDependencyInjectionQualifierAnnotation (
+								                                                           implementationClazz));
+						if (interfaceImplementationEquivalence.get (keyValue) != null)
+							throw new DependencyInjectionException ("The interface " + interfaceClazz.getCanonicalName() 
+                                                                  + " and 'key value' = " + keyValue + " has more than one "
+                                                                  + "implementation");
+
+						interfaceImplementationEquivalence.put (keyValue, implementationClazz.newInstance());
 
 					} catch (Exception e) {
 						throw new DependencyInjectionException (e);
@@ -159,7 +150,7 @@ public class DependencyInjectionResolver {
 	/**
 	 * Binds one interface with its implementation manually.
 	 * 
-	 * @param interfazClazz
+	 * @param interfaceClazz
 	 *    Class of interface
 	 * @param implementationClazz
 	 *    Class of implementation
@@ -168,15 +159,17 @@ public class DependencyInjectionResolver {
 	 * 
 	 * @throws DependencyInjectionException
 	 */
-	public <T, E> DependencyInjectionResolver bind (final Class<T> interfazClazz, final Class<E> implementationClazz)
+	public <T, E> DependencyInjectionResolver bind (final Class<T> interfaceClazz, final Class<E> implementationClazz)
 			                                           throws DependencyInjectionException {
 
-		if (interfazClazz == null || implementationClazz == null)
-			throw new DependencyInjectionException ((interfazClazz       == null ? "The given interfazClazz must not be null. "       : "")
+		if (interfaceClazz == null || implementationClazz == null)
+			throw new DependencyInjectionException ((interfaceClazz       == null ? "The given interfaceClazz must not be null. "       : "")
                                                   + (implementationClazz == null ? "The given implementationClazz must not be null. " : ""));
 		try {
-			interfaceImplementationEquivalence.put (interfazClazz.getCanonicalName(), implementationClazz.newInstance());
-
+			interfaceImplementationEquivalence.put (buildKeyInInterfaceImplementationEquivalence (interfaceClazz
+					                                                                             ,getQualifierValueInDependencyInjectionQualifierAnnotation (
+                                                                                                     implementationClazz))
+					                               ,implementationClazz.newInstance());
 		} catch (Exception e) {
 			throw new DependencyInjectionException (e);
 		}
@@ -208,18 +201,21 @@ public class DependencyInjectionResolver {
 	 * 
 	 * @param interfaceClazz
 	 *    Class of interface
-	 *    
+	 * @param qualifierValue
+	 *    Value of {@link DependencyInjectionQualifier} in an implementation class
+	 * 
 	 * @return the implementation of the given interface
 	 * 
-	 * @throws DependencyInje ctionException
+	 * @throws DependencyInjectionException
 	 */
 	@SuppressWarnings({ "unchecked" })
-	public <T> T getImplementation (final Class<T> interfaceClazz) throws DependencyInjectionException {     
+	public <T> T getImplementation (final Class<T> interfaceClazz, @Nullable String qualifierValue) throws DependencyInjectionException {     
 
 		if (interfaceClazz == null)
 			throw new DependencyInjectionException ("The given interfaceClazz must not be null");
 
-		T implementation = (T) interfaceImplementationEquivalence.get (interfaceClazz.getCanonicalName());
+		T implementation = (T) interfaceImplementationEquivalence.get (
+				                    buildKeyInInterfaceImplementationEquivalence (interfaceClazz, qualifierValue));
 		if (implementation == null)
 			throw new DependencyInjectionException ("The given interface name: " + interfaceClazz.getCanonicalName() 
 					                              + " has not an implementation");
@@ -271,12 +267,37 @@ public class DependencyInjectionResolver {
 	 * 
 	 * @param interfaceClazz
 	 *    Class of interface
+	 * @param qualifierValue
+	 *    Value of {@link DependencyInjectionQualifier} in an implementation class
 	 *    
 	 * @throws DependencyInjectionException
 	 */
-	public <T> void resolveDependenciesOfInterface (final Class<T> interfaceClazz) throws DependencyInjectionException {
+	public <T> void resolveDependenciesOfInterface (final Class<T> interfaceClazz, @Nullable String qualifierValue)
+			                                           throws DependencyInjectionException {
 
-		resolveDependenciesOfClass (getImplementation (interfaceClazz));
+		resolveDependenciesOfClass (getImplementation (interfaceClazz, qualifierValue));
+	}
+
+
+	/**
+	 *    With a given name of interface and quality value (of an implementation class), returns
+	 * the key value in {@link DependencyInjectionResolver#interfaceImplementationEquivalence} map.
+	 * 
+	 * @param interfaceClazz
+	 *    Class of interface
+	 * @param qualifierValue
+	 *    Value of {@link DependencyInjectionQualifier} in an implementation class
+	 *
+	 * @return {@link String} with the key value
+	 */
+	private String buildKeyInInterfaceImplementationEquivalence (Class<?> interfaceClazz, String qualifierValue) {
+
+		String key = interfaceClazz.getCanonicalName();
+
+		if (qualifierValue != null && !qualifierValue.trim().isEmpty())
+			key += separator + qualifierValue;
+
+		return key;
 	}
 
 
@@ -293,16 +314,97 @@ public class DependencyInjectionResolver {
 	 */
 	private Object findInAdditionalResolversTheImplementation (Field field) throws DependencyInjectionException {
 
+		// Gets qualifier value (in WithDependencyInjection annotation) of current property
+		String qualifierValue = null;
+		WithDependencyInjection annotation = (WithDependencyInjection)field.getAnnotation (WithDependencyInjection.class);
+		if (annotation != null)
+			qualifierValue = annotation.qualifier();
+
 		for (DependencyInjectionResolver additionalResolver : DependencyInjectionPool.instance()
 				                                                                     .getResolversLessGivenInterfacePackage (interfacesPackage)) {
 			try {
-				Object implementation = additionalResolver.getImplementation ((Class<?>) field.getType());
+				Object implementation = additionalResolver.getImplementation ((Class<?>) field.getType(), qualifierValue);
 				if (implementation != null)
 					return implementation;
 
 			} catch (DependencyInjectionException e) {}
 		}
 		return null;
+	}
+
+
+	/**
+	 * Returns classes of interfaces with {@link Injectable} annotation
+	 * 
+	 * @param interfaceToResolve
+	 *    Interface that manages this resolver
+	 * 
+	 * @return {@link Set} of classes with {@link Injectable} annotation
+	 */
+	private Set<Class<?>> getInterfaceClassesWithInjectableAnnotation (@Nullable final Class<?> interfaceToResolve) {
+
+		// Get "injectable interfaces"
+		Reflections interfaceReflections = new Reflections (new ConfigurationBuilder()
+                                                               .filterInputsBy (new FilterBuilder().includePackage (interfacesPackage))
+                                                               .setUrls (ClasspathHelper.forPackage (interfacesPackage))
+                                                               .setScanners (new SubTypesScanner()
+                                                                            ,new TypeAnnotationsScanner())
+                                                               .setExecutorService (Executors.newFixedThreadPool (2)));
+
+		Set<Class<?>> interfaceClasses = interfaceReflections.getTypesAnnotatedWith (Injectable.class);
+
+		// Filter by the interface indicated as parameter 
+		if (interfaceToResolve != null) {
+
+			boolean flagContainsInterfaceToResolve = false;
+			if (interfaceClasses.contains (interfaceToResolve))
+				flagContainsInterfaceToResolve = true;
+
+			interfaceClasses.retainAll (interfaceReflections.getSubTypesOf (interfaceToResolve));
+			if (flagContainsInterfaceToResolve)
+				interfaceClasses.add (interfaceToResolve);
+		}
+		return interfaceClasses;
+	}
+
+
+	/**
+	 *    Returns the value of qualifier of {@link DependencyInjectionQualifier} annotation
+	 * of a class.
+	 * 
+	 * @param implementationClazz
+	 *    Class that implements an {@link Injectable} interface
+	 * 
+	 * @return value of qualifier function
+	 */
+	private String getQualifierValueInDependencyInjectionQualifierAnnotation (Class<?> implementationClazz) {
+
+		String qualifierValue = null;
+		DependencyInjectionQualifier annotation = (DependencyInjectionQualifier)implementationClazz.getAnnotation (DependencyInjectionQualifier.class);
+		if (annotation != null)
+			qualifierValue = annotation.value();
+
+		return qualifierValue;
+	}
+
+
+	/**
+	 *    Returns the value of qualifier of {@link WithDependencyInjection} annotation
+	 * of a property.
+	 * 
+	 * @param field
+	 *    Property of a class that implements an {@link Injectable} interface
+	 * 
+	 * @return value of qualifier function
+	 */
+	private String getQualifierValueInWithDependencyInjectionAnnotation (Field field) {
+
+		String qualifierValue = null;
+		WithDependencyInjection annotation = (WithDependencyInjection)field.getAnnotation (WithDependencyInjection.class);
+		if (annotation != null)
+			qualifierValue = annotation.qualifier();
+
+		return qualifierValue;
 	}
 
 
@@ -329,7 +431,10 @@ public class DependencyInjectionResolver {
 				field.setAccessible (true);
 				try {
 					// Searching inside "current resolver"
-					Object clazzPropertyImplementation = interfaceImplementationEquivalence.get (field.getType().getCanonicalName());
+					Object clazzPropertyImplementation = interfaceImplementationEquivalence.get (
+							                                buildKeyInInterfaceImplementationEquivalence (field.getType()
+								                                                                         ,getQualifierValueInWithDependencyInjectionAnnotation (
+								                                                                             field)));
 					if (clazzPropertyImplementation != null)
 						field.set (clazz, clazzPropertyImplementation);
 
