@@ -22,6 +22,7 @@ Below is shown a brief introduction to the components included in this project:
 ### Annotations
 
 * **Injectable**: specifies those interfaces to be implemented by a class (simulating dependency injection).
+* **DependencyInjectionQualifier**: identifies the current implementation of a particular interface.
 * **WithDependencyInjection**: specifies which properties they should inject dependency.
 
 ### Classes
@@ -113,7 +114,95 @@ public class Global extends GlobalSettings {
    }
 }
 ```
-Now we have everything you need to use dependency injection in our Play projects.
+
+## Different implementations of the same interface
+
+How can we distinguish between two implementations of the same interface? Let's see how to do it by the following
+example:
+
+```java
+package daos.spi;
+
+import org.play.dependencyinjection.annotations.Injectable;
+
+@Injectable
+public interface ITestQualifierDao {
+
+   public String enteringAtTestQualifierDao();
+}
+```
+
+Now let's define two different implementations of the above interface:
+
+```java
+package daos.impl;
+
+import daos.spi.ITestQualifierDao;
+
+public class FirstTestQualifierDao implements ITestQualifierDao {
+
+
+	@Override
+	public String enteringAtTestQualifierDao() {
+
+		return "First test qualifier dao";
+	}
+
+}
+```
+
+```java
+package daos.impl;
+
+import org.play.dependencyinjection.annotations.DependencyInjectionQualifier;
+
+import daos.spi.ITestQualifierDao;
+
+@DependencyInjectionQualifier("secondTestQualifierDao")
+public class SecondTestQualifierDao implements ITestQualifierDao {
+
+
+	@Override
+	public String enteringAtTestQualifierDao() {
+
+		return "Second test qualifier dao";
+	}
+
+}
+```
+
+Note the use of **@DependencyInjectionQualifier** annotation to resolve the conflicts between the implementations.
+And finally, as shown below, we may use both implementations:
+
+```java
+package controllers;
+
+import org.play.dependencyinjection.annotations.WithDependencyInjection;
+
+import daos.spi.ITestQualifierDao;
+import play.*;
+import play.mvc.*;
+import views.html.*;
+
+public class Application extends Controller {
+
+	@WithDependencyInjection
+	private static ITestQualifierDao firstTestQualifierDao;
+
+	@WithDependencyInjection(qualifier="secondTestQualifierDao")
+	private static ITestQualifierDao secondTestQualifierDao;
+
+    public static Result index() {
+    	Logger.info (firstTestQualifierDao.enteringAtTestQualifierDao());
+    	Logger.info (secondTestQualifierDao.enteringAtTestQualifierDao());
+
+       return ok (index.render ("Your new application is ready."));
+    }
+
+}
+```
+
+Now you know everything you need to use dependency injection in your Play projects.
 
 You can find a more complex example that includes a layer of services, at the following [address](https://github.com/doctore/PlayDependencyInjectionExample)
  
