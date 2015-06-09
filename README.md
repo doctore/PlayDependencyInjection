@@ -5,6 +5,7 @@
     - [Annotations](#annotations)
     - [Classes](#classes)
 - [Basic use case](#basic-use-case)
+- [Different implementations of the same interface](#different-implementations-of-the-same-interface)
 
 ## Why this project was created?
 
