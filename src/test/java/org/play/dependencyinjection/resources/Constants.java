@@ -26,6 +26,9 @@ public class Constants {
 	public static final String manyImplementationsWithSameQualifierDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithSameQualifier.spi";
 	public static final String manyImplementationsWithSameQualifierDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithSameQualifier.impl";
 
+	public static final String preInitializedObjectsDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.spi";
+	public static final String preInitializedObjectsDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.impl";
+
 	public static final String withoutImplementationDILInterfacesPath     = "org.play.dependencyinjection.resources.dependencyInjectionLayer.withoutImplementation.spi";
 	public static final String withoutImplementationDILImplementationPath = "org.play.dependencyinjection.resources.dependencyInjectionLayer.withoutImplementationl.impl";
 

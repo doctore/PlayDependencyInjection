@@ -2,6 +2,7 @@ package org.play.dependencyinjection.resolvers;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
@@ -41,6 +42,12 @@ public class DependencyInjectionResolver {
 	 */
 	private String interfacesPackage;
 
+	/**
+	 *    Stores the instances of objects that the user has initialized (for
+	 * example, because he/she does not want to use the default constructor)
+	 */
+	private Map<String, Object> preInitializedObjectsMap;
+
 
 	/**
 	 * Initializes the equivalence between "interfaces" and "implementations".
@@ -73,7 +80,7 @@ public class DependencyInjectionResolver {
 	 */
 	public DependencyInjectionResolver (final String interfacesPackage, final String implementationPackage) throws DependencyInjectionException {
 
-		this (interfacesPackage, implementationPackage, null);
+		this (interfacesPackage, implementationPackage, null, null);
 	}
 
 
@@ -92,16 +99,62 @@ public class DependencyInjectionResolver {
 	public DependencyInjectionResolver (final String interfacesPackage, final String implementationPackage,
                                         @Nullable final Class<?> interfaceToResolve) throws DependencyInjectionException {
 
+		this (interfacesPackage, implementationPackage, interfaceToResolve, null);
+	}
+	
+	
+	/**
+	 * Initializes the equivalence between "interfaces" and "implementations".
+	 * 
+	 * @param interfacesPackage
+	 *    Package name that stores the "injectable interfaces"
+	 * @param implementationPackage
+	 *    Package name that stores the implementation of "injectable interfaces"
+	 * @param preInitializedObjects
+	 *    {@link List} of {@link Object}s preinitialized by the user (for example,
+	 *    because he/she does not want to use the default constructor)
+	 * 
+	 * @throws DependencyInjectionException
+	 */
+	public DependencyInjectionResolver (final String interfacesPackage, final String implementationPackage,
+                                        @Nullable final List<Object> preInitializedObjects) throws DependencyInjectionException {
+
+		this (interfacesPackage, implementationPackage, null, preInitializedObjects);
+	}
+	
+	
+	/**
+	 * Initializes the equivalence between "interfaces" and "implementations".
+	 * 
+	 * @param interfacesPackage
+	 *    Package name that stores the "injectable interfaces"
+	 * @param implementationPackage
+	 *    Package name that stores the implementation of "injectable interfaces"
+	 * @param interfaceToResolve
+	 *    Interface that manages this resolver
+	 * @param preInitializedObjects
+	 *    {@link List} of {@link Object}s preinitialized by the user (for example,
+	 *    because he/she does not want to use the default constructor)
+	 * 
+	 * @throws DependencyInjectionException
+	 */
+	public DependencyInjectionResolver (final String interfacesPackage, final String implementationPackage,
+                                        @Nullable final Class<?> interfaceToResolve,
+                                        @Nullable final List<Object> preInitializedObjects) throws DependencyInjectionException {
+		
 		String errorMessage = (interfacesPackage == null || interfacesPackage.trim().isEmpty() 
                                   ? "The given resolverIdentifier must not be null or empty. " : "");
 
-		errorMessage       += (implementationPackage == null || implementationPackage.trim().isEmpty() 
-                                  ? "The given implementationPackage must not be null or empty. " : "");
+		errorMessage += (implementationPackage == null || implementationPackage.trim().isEmpty() 
+                             ? "The given implementationPackage must not be null or empty. " : "");
 
 		if (!errorMessage.isEmpty())
 			throw new DependencyInjectionException (errorMessage);	
 
 		this.interfacesPackage = interfacesPackage;
+
+		// Stores the equivalence class name - object instance, for "preinitialized objects"
+		this.preInitializedObjectsMap = buildPreInitializeObjectsMap (preInitializedObjects);
 
 		// Gets classes of interfaces with Injectable annotation
 		Set<Class<?>> interfaceClasses = getInterfaceClassesWithInjectableAnnotation (interfaceToResolve);
@@ -136,7 +189,11 @@ public class DependencyInjectionResolver {
                                                                   + " and 'key value' = " + keyValue + " has more than one "
                                                                   + "implementation");
 
-						interfaceImplementationEquivalence.put (keyValue, implementationClazz.newInstance());
+						// Checks if we have a "preinitialized object" of implementationClazz
+						if (preInitializedObjectsMap.containsKey (implementationClazz.getCanonicalName()))
+							interfaceImplementationEquivalence.put (keyValue, preInitializedObjectsMap.get (implementationClazz.getCanonicalName()));
+						else
+							interfaceImplementationEquivalence.put (keyValue, implementationClazz.newInstance());
 
 					} catch (Exception e) {
 						throw new DependencyInjectionException (e);
@@ -144,6 +201,7 @@ public class DependencyInjectionResolver {
 				}
 			}
 		}
+
 	}
 
 
@@ -298,6 +356,40 @@ public class DependencyInjectionResolver {
 			key += separator + qualifierValue;
 
 		return key;
+	}
+
+
+	/**
+	 *    Builds a {@link Map} with class name as key and object instance as value using
+	 * the given preInitializedObjects parameters.
+	 * 
+	 *    The returned {@link Map} will be used to store the objects that the user wants
+	 * to preinitialize (for example, because he/she does not want to use the default
+	 * constructor)
+	 * 
+	 * @param preInitializedObjects
+	 *    {@link List} of {@link Object}s preinitialized by the user
+	 *    
+	 * @return {@link Map} with class name as key and object instance as value
+	 *
+	 * @throws DependencyInjectionException
+	 */
+	private Map<String, Object> buildPreInitializeObjectsMap (List<Object> preInitializedObjects) throws DependencyInjectionException {
+
+		Map<String, Object> preInitializedObjectsMap = new HashMap<String, Object>();
+		if (preInitializedObjects != null) {
+
+			for (Object preInitializedObject : preInitializedObjects) {
+
+				String key = preInitializedObject.getClass().getCanonicalName();
+				if (preInitializedObjectsMap.containsKey (key))
+					throw new DependencyInjectionException ("In the preinitialized list of objects, the class: " + key 
+							                              + " appears more than once");
+
+				preInitializedObjectsMap.put (key, preInitializedObject);
+			}
+		}
+		return preInitializedObjectsMap;
 	}
 
 

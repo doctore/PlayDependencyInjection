@@ -3,7 +3,11 @@ package org.play.dependencyinjection.resolvers;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.Test;
 import org.play.dependencyinjection.annotations.DependencyInjectionQualifier;
@@ -23,6 +27,14 @@ import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImple
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImplementationsWithoutSameQualifier.spi.ITestInterfaceManyImplementationsWithoutSameQualifier;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.nested.impl.ImplementationNested;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.nested.spi.ITestInterfaceNested;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.impl.ImplementationPreInitializedObjectsOne_Default;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.impl.ImplementationPreInitializedObjectsOne_Initialized;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.impl.ImplementationPreInitializedObjectsThree;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.impl.ImplementationPreInitializedObjectsTwo_Default;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.impl.ImplementationPreInitializedObjectsTwo_Initialized;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.spi.ITestInterfacePreInitializedObjectsOne;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.spi.ITestInterfacePreInitializedObjectsThree;
+import org.play.dependencyinjection.resources.dependencyInjectionLayer.preInitializedObjects.spi.ITestInterfacePreInitializedObjectsTwo;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.simple.alt.ImplementationSimpleAlt;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.simple.impl.ImplementationSimple;
 import org.play.dependencyinjection.resources.dependencyInjectionLayer.simple.spi.ITestInterfaceSimple;
@@ -240,6 +252,146 @@ public class DependencyInjectionResolverTest {
 
 		assertEquals (new ImplementationDifferentBranchesTwo().testInterfaceDifferentBranchesTwo(),
 			          resolverTwo.getImplementation (ITestInterfaceDifferentBranchesTwo.class, null).testInterfaceDifferentBranchesTwo());
+	}
+
+
+	@Test(expected=DependencyInjectionException.class)
+    public void testingPreInitializedObjectTwiceTest() throws DependencyInjectionException {
+
+		List<Object> preInitializedObjects = new ArrayList<Object>();
+		preInitializedObjects.add (new ImplementationPreInitializedObjectsOne_Default());
+		preInitializedObjects.add (new ImplementationPreInitializedObjectsTwo_Default());
+		preInitializedObjects.add (new ImplementationPreInitializedObjectsOne_Default());
+		
+		new DependencyInjectionResolver (Constants.preInitializedObjectsDILInterfacesPath
+				                        ,Constants.preInitializedObjectsDILImplementationPath
+				                        ,preInitializedObjects);
+    }
+
+
+	@Test
+    public void testingPreInitializedObjectWithQualifierTest() throws DependencyInjectionException {
+	
+		String propertyOfImplementationObjectOne  = "privateStringProperty";
+		Integer propertyOfImplementationObjectTwo = Integer.MIN_VALUE;
+		
+		List<Object> preInitializedObjects = new ArrayList<Object>();
+		preInitializedObjects.add (new ImplementationPreInitializedObjectsOne_Initialized (propertyOfImplementationObjectOne));
+		preInitializedObjects.add (new ImplementationPreInitializedObjectsTwo_Initialized (propertyOfImplementationObjectTwo));
+		
+		DependencyInjectionResolver resolver = new DependencyInjectionResolver (Constants.preInitializedObjectsDILInterfacesPath
+				                                                               ,Constants.preInitializedObjectsDILImplementationPath
+				                                                               ,preInitializedObjects);
+		assertNotNull (resolver);
+		assertNotNull (resolver.getInterfacesPackage());
+		assertTrue (resolver.getInterfacesPackage().equals (Constants.preInitializedObjectsDILInterfacesPath));
+
+		// ITestInterfacePreInitializedObjectsOne
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, null));
+		assertNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, null).getValueOfPrivateStringProperty());
+		assertEquals (new ImplementationPreInitializedObjectsOne_Default().getValueOfPrivateStringProperty()
+				     ,resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, null).getValueOfPrivateStringProperty());
+
+		String qualifierValue = null;
+		DependencyInjectionQualifier annotation = (DependencyInjectionQualifier)ImplementationPreInitializedObjectsOne_Initialized.class.getAnnotation (DependencyInjectionQualifier.class);
+		if (annotation != null)
+			qualifierValue = annotation.value();
+
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, qualifierValue));
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, qualifierValue).getValueOfPrivateStringProperty());
+		assertEquals (new ImplementationPreInitializedObjectsOne_Initialized (propertyOfImplementationObjectOne).getValueOfPrivateStringProperty()
+			         ,resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, qualifierValue).getValueOfPrivateStringProperty());
+
+		// ITestInterfacePreInitializedObjectsTwo
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, null));
+		assertNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, null).getValueOfPrivateIntegerProperty());
+		assertEquals (new ImplementationPreInitializedObjectsTwo_Default().getValueOfPrivateIntegerProperty()
+				     ,resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, null).getValueOfPrivateIntegerProperty());
+
+		qualifierValue = null;
+		annotation = (DependencyInjectionQualifier)ImplementationPreInitializedObjectsTwo_Initialized.class.getAnnotation (DependencyInjectionQualifier.class);
+		if (annotation != null)
+			qualifierValue = annotation.value();
+
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, qualifierValue));
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, qualifierValue).getValueOfPrivateIntegerProperty());
+		assertEquals (new ImplementationPreInitializedObjectsTwo_Initialized (propertyOfImplementationObjectTwo).getValueOfPrivateIntegerProperty()
+			         ,resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, qualifierValue).getValueOfPrivateIntegerProperty());
+
+		// ITestInterfacePreInitializedObjectsThree
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsThree.class, null));
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsThree.class, null).testInterfacePreInitializedObjectsThree());
+		assertEquals (new ImplementationPreInitializedObjectsThree().testInterfacePreInitializedObjectsThree()
+				     ,resolver.getImplementation (ITestInterfacePreInitializedObjectsThree.class, null).testInterfacePreInitializedObjectsThree());
+	}
+
+
+	@Test
+    public void testingPreInitializedObjectWithQualifierAndInterfaceToResolveTest() throws DependencyInjectionException {
+		
+		String propertyOfImplementationObjectOne = "privateStringProperty";
+		
+		List<Object> preInitializedObjects = new ArrayList<Object>();
+		preInitializedObjects.add (new ImplementationPreInitializedObjectsOne_Initialized (propertyOfImplementationObjectOne));
+		preInitializedObjects.add (new ImplementationPreInitializedObjectsTwo_Default());
+
+		DependencyInjectionResolver resolver = new DependencyInjectionResolver (Constants.preInitializedObjectsDILInterfacesPath
+				                                                               ,Constants.preInitializedObjectsDILImplementationPath
+				                                                               ,ITestInterfacePreInitializedObjectsOne.class
+				                                                               ,preInitializedObjects);
+		assertNotNull (resolver);
+		assertNotNull (resolver.getInterfacesPackage());
+		assertTrue (resolver.getInterfacesPackage().equals (Constants.preInitializedObjectsDILInterfacesPath));
+
+		// ITestInterfacePreInitializedObjectsOne
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, null));
+		assertNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, null).getValueOfPrivateStringProperty());
+		assertEquals (new ImplementationPreInitializedObjectsOne_Default().getValueOfPrivateStringProperty()
+				     ,resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, null).getValueOfPrivateStringProperty());
+
+		String qualifierValue = null;
+		DependencyInjectionQualifier annotation = (DependencyInjectionQualifier)ImplementationPreInitializedObjectsOne_Initialized.class.getAnnotation (DependencyInjectionQualifier.class);
+		if (annotation != null)
+			qualifierValue = annotation.value();
+
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, qualifierValue));
+		assertNotNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, qualifierValue).getValueOfPrivateStringProperty());
+		assertEquals (new ImplementationPreInitializedObjectsOne_Initialized (propertyOfImplementationObjectOne).getValueOfPrivateStringProperty()
+			         ,resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, qualifierValue).getValueOfPrivateStringProperty());
+
+		// ITestInterfacePreInitializedObjectsTwo
+		boolean throwsException = false;
+		try {
+			resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, null);
+
+		} catch (DependencyInjectionException e) {
+			throwsException = true;
+		}
+		assertTrue (throwsException);
+
+		qualifierValue = null;
+		annotation = (DependencyInjectionQualifier)ImplementationPreInitializedObjectsTwo_Initialized.class.getAnnotation (DependencyInjectionQualifier.class);
+		if (annotation != null)
+			qualifierValue = annotation.value();
+
+		throwsException = false;
+		try {
+			resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, qualifierValue);
+
+		} catch (DependencyInjectionException e) {
+			throwsException = true;
+		}
+		assertTrue (throwsException);
+
+		// ITestInterfacePreInitializedObjectsThree
+		throwsException = false;
+		try {
+			resolver.getImplementation (ITestInterfacePreInitializedObjectsThree.class, qualifierValue);
+
+		} catch (DependencyInjectionException e) {
+			throwsException = true;
+		}
+		assertTrue (throwsException);
 	}
 
 }

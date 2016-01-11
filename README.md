@@ -6,6 +6,7 @@
     - [Classes](#classes)
 - [Basic use case](#basic-use-case)
 - [Different implementations of the same interface](#different-implementations-of-the-same-interface)
+- [Using a list of preinitialized objects](#using-a-list-of-preinitialized-objects)
 
 ## Why this project was created?
 
@@ -203,6 +204,86 @@ public class Application extends Controller {
 }
 ```
 
+## Using a list of preinitialized objects
+
+By default, the process used to get the equivalence between interfaces and implementations creates instances of
+"implementation objects" using its default constructor (without parameters). However, from now is possible to use
+a list of objects that we have built previously because, for example, we need to used a custom construct for those
+objects.
+
+```java
+package daos.spi;
+
+import org.play.dependencyinjection.annotations.Injectable;
+
+@Injectable
+public interface ITestInterface {
+
+   public String enteringAtTestInterface();
+}
+```
+
+Now let's define a implementations of the above interface with a custom constructor:
+
+```java
+package daos.impl;
+
+import daos.spi.ITestInterface;
+
+public class CustomConstructTestInterface implements ITestInterface {
+
+	private String privateStringProperty;
+	
+	public CustomConstructTestInterface (String privateStringProperty) {
+
+		this.privateStringProperty = privateStringProperty;
+	}
+
+	@Override
+	public String enteringAtTestInterface() {
+
+		return "Custom construct test interface" + privateStringProperty;
+	}
+
+}
+```
+
+Finally, we have to tell Play how to resolve dependencies and preinitialized the object:
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+import org.play.dependencyinjection.DependencyInjectionPool;
+import org.play.dependencyinjection.exceptions.DependencyInjectionException;
+import org.play.dependencyinjection.resolvers.DependencyInjectionResolver;
+import configuration.Constants;
+import play.Application;
+import play.GlobalSettings;
+import play.Logger;
+import play.mvc.Controller;
+
+public class Global extends GlobalSettings {
+
+   @Override
+   public void onStart (Application app) {
+   
+      try {
+         // Creates our custom object instance of CustomConstructTestInterface
+         List<Object> preInitializedObjects = new ArrayList<Object>();
+         preInitializedObjects.add (new CustomConstructTestInterface ("My string"));
+      
+         // Initializes the dependency injection
+         DependencyInjectionPool.instance().addNewResolver (new DependencyInjectionResolver ("daos.spi", "daos.impl"
+                                                                                            ,preInitializedObjects))
+                                           .initializeControllersResolver ("controllers", Controller.class);
+
+      } catch (DependencyInjectionException e) {
+         Logger.error ("Error when initializes the dependency injection", e);
+      }
+   }
+}
+```
+ 
 Now you know everything you need to use dependency injection in your Play projects.
 
 You can find a more complex example that includes a layer of services, at the following [address](https://github.com/doctore/PlayDependencyInjectionExample)
