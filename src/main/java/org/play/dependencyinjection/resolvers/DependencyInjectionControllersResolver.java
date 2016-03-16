@@ -5,7 +5,6 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 
 import org.play.dependencyinjection.DependencyInjectionPool;
-import org.play.dependencyinjection.annotations.Injectable;
 import org.play.dependencyinjection.annotations.WithDependencyInjection;
 import org.play.dependencyinjection.exceptions.DependencyInjectionException;
 import org.reflections.ReflectionUtils;
@@ -137,34 +136,13 @@ public class DependencyInjectionControllersResolver {
 		for (DependencyInjectionResolver additionalResolver : DependencyInjectionPool.instance()
 				                                                                     .getResolversLessGivenInterfacePackage (null)) {
 			try {
-				Object implementation = additionalResolver.getImplementation ((Class<?>) field.getType()
-						                                                     ,getQualifierValueInWithDependencyInjectionAnnotation (field));
+				Object implementation = additionalResolver.getImplementationOfField (field); 
 				if (implementation != null)
 					return implementation;
 
 			} catch (DependencyInjectionException e) {}
 		}
 		return null;
-	}
-
-
-	/**
-	 *    Returns the value of qualifier of {@link WithDependencyInjection} annotation
-	 * of a property.
-	 * 
-	 * @param field
-	 *    Property of a class that implements an {@link Injectable} interface
-	 * 
-	 * @return value of qualifier function
-	 */
-	private String getQualifierValueInWithDependencyInjectionAnnotation (Field field) {
-
-		String qualifierValue = null;
-		WithDependencyInjection annotation = (WithDependencyInjection)field.getAnnotation (WithDependencyInjection.class);
-		if (annotation != null)
-			qualifierValue = annotation.qualifier();
-
-		return qualifierValue;
 	}
 
 }

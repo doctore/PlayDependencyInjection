@@ -26,27 +26,16 @@ import org.reflections.util.FilterBuilder;
  * Main class that manages the dependency injection.
  */
 public class DependencyInjectionResolver {
-
+	
 	/**
-	 * Use to separate the parts of a "composed string"
+	 * In the operations related with the searching of information about interfaces and implementations, the number of threads 
 	 */
-	private static String separator = "-";
-
+	private static int numberOfParallelThreads = 2;
+	
 	/**
-	 * Stores the equivalence between interfaces and implementations
+	 * Used to store the necessary information that the current resolver needs to manage 
 	 */
-	private Map<String, Object> interfaceImplementationEquivalence = new HashMap<String, Object>();
-
-	/**
-	 * Package name that stores the "injectable interfaces"
-	 */
-	private String interfacesPackage;
-
-	/**
-	 *    Stores the instances of objects that the user has initialized (for
-	 * example, because he/she does not want to use the default constructor)
-	 */
-	private Map<String, Object> preInitializedObjectsMap;
+	private InternalInformationOfResolver internalInformationOfResolver;
 
 
 	/**
@@ -64,7 +53,7 @@ public class DependencyInjectionResolver {
 		if (interfacesPackage == null)
 			throw new DependencyInjectionException ("The given interfacesPackage must not be null");
 
-		this.interfacesPackage = interfacesPackage;
+		this.internalInformationOfResolver = new InternalInformationOfResolver (interfacesPackage);
 	}
 
 
@@ -141,67 +130,38 @@ public class DependencyInjectionResolver {
 	public DependencyInjectionResolver (final String interfacesPackage, final String implementationPackage,
                                         @Nullable final Class<?> interfaceToResolve,
                                         @Nullable final List<Object> preInitializedObjects) throws DependencyInjectionException {
-		
+
 		String errorMessage = (interfacesPackage == null || interfacesPackage.trim().isEmpty() 
-                                  ? "The given resolverIdentifier must not be null or empty. " : "");
+                                  ? "The given interfacesPackage must not be null or empty. " : "");
 
 		errorMessage += (implementationPackage == null || implementationPackage.trim().isEmpty() 
                              ? "The given implementationPackage must not be null or empty. " : "");
 
 		if (!errorMessage.isEmpty())
 			throw new DependencyInjectionException (errorMessage);	
+		
+		this.internalInformationOfResolver = new InternalInformationOfResolver (interfacesPackage);
+		
+		// Executes the first step of dependency injection process: creates the relation between interface - implementation  
+		buildDependencyInjectionOfInterfacesAndImplementations (implementationPackage, interfaceToResolve, preInitializedObjects);	
+	}
 
-		this.interfacesPackage = interfacesPackage;
 
-		// Stores the equivalence class name - object instance, for "preinitialized objects"
-		this.preInitializedObjectsMap = buildPreInitializeObjectsMap (preInitializedObjects);
+	@Override
+	public int hashCode() {		
+		return (internalInformationOfResolver == null ? 0 : internalInformationOfResolver.hashCode());
+	}
 
-		// Gets classes of interfaces with Injectable annotation
-		Set<Class<?>> interfaceClasses = getInterfaceClassesWithInjectableAnnotation (interfaceToResolve);
-		if (interfaceClasses != null) {
 
-			// Gets implementations
-			Reflections implementationReflections = new Reflections (new ConfigurationBuilder()
-                                                                        .filterInputsBy (new FilterBuilder().includePackage (implementationPackage))
-                                                                        .setUrls (ClasspathHelper.forPackage (implementationPackage))
-                                                                        .setScanners (new SubTypesScanner()
-                                                                                     ,new TypeAnnotationsScanner())
-                                                                        .setExecutorService (Executors.newFixedThreadPool (2)));
-			// Links the interface with its implementation
-			for (Class<?> interfaceClazz : interfaceClasses) {
+	@Override
+	public boolean equals (Object obj) {
+		
+		if (this == obj)  return true;
+        if (obj == null || getClass() != obj.getClass())  return false;
 
-				Set<?> implementationClasses = implementationReflections.getSubTypesOf (interfaceClazz);
-				if (implementationClasses == null || implementationClasses.isEmpty())
-					throw new DependencyInjectionException ("The interface " + interfaceClazz.getCanonicalName()
-                                                          + " has not an implementation");
-
-				// Insert in the "equivalence Map": interface -> implementation
-				for (Object implementationClass : implementationClasses) {
-
-					try {
-						Class<?> implementationClazz = Class.forName (implementationClass.toString().replace("class ", ""));
-
-						String keyValue = buildKeyInInterfaceImplementationEquivalence (interfaceClazz
-								                                                       ,getQualifierValueInDependencyInjectionQualifierAnnotation (
-								                                                           implementationClazz));
-						if (interfaceImplementationEquivalence.get (keyValue) != null)
-							throw new DependencyInjectionException ("The interface " + interfaceClazz.getCanonicalName() 
-                                                                  + " and 'key value' = " + keyValue + " has more than one "
-                                                                  + "implementation");
-
-						// Checks if we have a "preinitialized object" of implementationClazz
-						if (preInitializedObjectsMap.containsKey (implementationClazz.getCanonicalName()))
-							interfaceImplementationEquivalence.put (keyValue, preInitializedObjectsMap.get (implementationClazz.getCanonicalName()));
-						else
-							interfaceImplementationEquivalence.put (keyValue, implementationClazz.newInstance());
-
-					} catch (Exception e) {
-						throw new DependencyInjectionException (e);
-					}
-				}
-			}
-		}
-
+        DependencyInjectionResolver other = (DependencyInjectionResolver) obj;
+        return !(internalInformationOfResolver != null ? !internalInformationOfResolver.equals (other.internalInformationOfResolver) 
+        		                                       : other.internalInformationOfResolver != null);
 	}
 
 
@@ -212,50 +172,28 @@ public class DependencyInjectionResolver {
 	 *    Class of interface
 	 * @param implementationClazz
 	 *    Class of implementation
+	 * @param preinitializedObject
+	 *    Object that the user has initialized for the given implementationClazz (for example, because he/she does not want
+	 * to use the default constructor)  
 	 * 
 	 * @return instance of {@link DependencyInjectionResolver}
 	 * 
 	 * @throws DependencyInjectionException
 	 */
-	public <T, E> DependencyInjectionResolver bind (final Class<T> interfaceClazz, final Class<E> implementationClazz)
-			                                           throws DependencyInjectionException {
+	public <T, E> DependencyInjectionResolver bind (final Class<T> interfaceClazz, final Class<E> implementationClazz
+			                                       ,@Nullable final Object preinitializedObject) throws DependencyInjectionException {
 
 		if (interfaceClazz == null || implementationClazz == null)
-			throw new DependencyInjectionException ((interfaceClazz       == null ? "The given interfaceClazz must not be null. "       : "")
+			throw new DependencyInjectionException ((interfaceClazz       == null ? "The given interfaceClazz must not be null. " : "")
                                                   + (implementationClazz == null ? "The given implementationClazz must not be null. " : ""));
-		try {
-			interfaceImplementationEquivalence.put (buildKeyInInterfaceImplementationEquivalence (interfaceClazz
-					                                                                             ,getQualifierValueInDependencyInjectionQualifierAnnotation (
-                                                                                                     implementationClazz))
-					                               ,implementationClazz.newInstance());
-		} catch (Exception e) {
-			throw new DependencyInjectionException (e);
-		}
+
+		internalBind (interfaceClazz, implementationClazz, true, preinitializedObject);
 		return this;
 	}
 
 
-	@Override
-	public boolean equals (final Object obj) {
-
-		if (this == obj)  return true;
-		if (obj == null)  return false;
-		if (getClass() != obj.getClass())  return false;
-
-		DependencyInjectionResolver other = (DependencyInjectionResolver) obj;
-		if (interfacesPackage == null) {
-			if (other.interfacesPackage != null)
-				return false;
-
-		} else if (!interfacesPackage.equals (other.interfacesPackage))
-			return false;
-
-		return true;
-	}
-
-
 	/**
-	 * Get a implementation from a interface.
+	 * Gets the implementation of the given interface (and qualifier value)
 	 * 
 	 * @param interfaceClazz
 	 *    Class of interface
@@ -266,38 +204,51 @@ public class DependencyInjectionResolver {
 	 * 
 	 * @throws DependencyInjectionException
 	 */
-	@SuppressWarnings({ "unchecked" })
 	public <T> T getImplementation (final Class<T> interfaceClazz, @Nullable String qualifierValue) throws DependencyInjectionException {     
 
-		if (interfaceClazz == null)
-			throw new DependencyInjectionException ("The given interfaceClazz must not be null");
-
-		T implementation = (T) interfaceImplementationEquivalence.get (
-				                    buildKeyInInterfaceImplementationEquivalence (interfaceClazz, qualifierValue));
-		if (implementation == null)
-			throw new DependencyInjectionException ("The given interface name: " + interfaceClazz.getCanonicalName() 
-					                              + " has not an implementation");
-        return implementation;  
+		return this.internalInformationOfResolver.getImplementation (interfaceClazz, qualifierValue);
 	}
 
 
 	/**
-	 * Gets package name that stores the "injectable interfaces"
+	 *    Returns the valid value (implementation) of the given {@link Field} if the current {@link DependencyInjectionResolver}
+	 * manages the relation interface-implementation of the field.
 	 * 
-	 * @return package name of "injectable interfaces"
+	 * @param field
+	 *    {@link Field} whose value needs to be manage using the dependency injection functionality
+	 * 
+	 * @return the value of the given field (or null if the current {@link DependencyInjectionResolver}
+	 *         does not manage the given field)
+	 * 
+	 * @throws DependencyInjectionException 
 	 */
-	public String getInterfacesPackage() {
-		return interfacesPackage;
+	public Object getImplementationOfField (Field field) throws DependencyInjectionException {
+
+		if (field == null)
+			throw new DependencyInjectionException ("The given field must not be null");
+
+		return this.internalInformationOfResolver.getImplementationOfField (field);
 	}
 
 
-	@Override
-	public int hashCode() {
+	/**
+	 * Returns the package name of the "injectable interfaces" managed by the current {@link DependencyInjectionResolver}
+	 * 
+	 * @return {@link String} with the package name of the "injectable interfaces"
+	 */
+	public String getInterfacesPackage() {
+		return this.internalInformationOfResolver.getInterfacesPackage();
+	}
 
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((interfacesPackage == null) ? 0 : interfacesPackage.hashCode());
-		return result;
+
+	/**
+	 * Deletes the information contained in the current object.
+	 * 
+	 * <h1><strong>IMPORTANT: Use only when we will stop the application</strong></h1></br>
+	 */
+	public void destroyResources() {
+
+		this.internalInformationOfResolver.destroyResources();
 	}
 
 
@@ -309,10 +260,10 @@ public class DependencyInjectionResolver {
 	 */
 	public void resolveAllClassPropertiesOfImplementations() throws DependencyInjectionException {
 
-		if (interfaceImplementationEquivalence != null) {
+		if (this.internalInformationOfResolver != null) {
 
-			for (Object implementation : interfaceImplementationEquivalence.values())
-				resolveDependenciesOfClass (implementation);
+			for (Object implementation : this.internalInformationOfResolver.getImplementations())
+				resolvePropertiesOfImplementation (implementation);
 		}
 	}
 
@@ -333,69 +284,70 @@ public class DependencyInjectionResolver {
 	public <T> void resolveDependenciesOfInterface (final Class<T> interfaceClazz, @Nullable String qualifierValue)
 			                                           throws DependencyInjectionException {
 
-		resolveDependenciesOfClass (getImplementation (interfaceClazz, qualifierValue));
+		resolvePropertiesOfImplementation (getImplementation (interfaceClazz, qualifierValue));
 	}
 
 
 	/**
-	 *    With a given name of interface and quality value (of an implementation class), returns
-	 * the key value in {@link DependencyInjectionResolver#interfaceImplementationEquivalence} map.
+	 *    Resolves the dependency injections between interfaces and its implementation, that is, searches all
+	 * interfaces with the annotation {@link Injectable} and tries to find an implementation of those interfaces.     
 	 * 
-	 * @param interfaceClazz
-	 *    Class of interface
-	 * @param qualifierValue
-	 *    Value of {@link DependencyInjectionQualifier} in an implementation class
-	 *
-	 * @return {@link String} with the key value
-	 */
-	private String buildKeyInInterfaceImplementationEquivalence (Class<?> interfaceClazz, String qualifierValue) {
-
-		String key = interfaceClazz.getCanonicalName();
-
-		if (qualifierValue != null && !qualifierValue.trim().isEmpty())
-			key += separator + qualifierValue;
-
-		return key;
-	}
-
-
-	/**
-	 *    Builds a {@link Map} with class name as key and object instance as value using
-	 * the given preInitializedObjects parameters.
-	 * 
-	 *    The returned {@link Map} will be used to store the objects that the user wants
-	 * to preinitialize (for example, because he/she does not want to use the default
-	 * constructor)
-	 * 
+	 * @param implementationPackage
+	 *    Package name that stores the implementation of "injectable interfaces"
+	 * @param interfaceToResolve
+	 *    Interface that manages this resolver
 	 * @param preInitializedObjects
-	 *    {@link List} of {@link Object}s preinitialized by the user
+	 *    {@link List} of {@link Object}s preinitialized by the user (for example,
+	 *    because he/she does not want to use the default constructor)
 	 *    
-	 * @return {@link Map} with class name as key and object instance as value
-	 *
-	 * @throws DependencyInjectionException
+	 * @throws DependencyInjectionException   
 	 */
-	private Map<String, Object> buildPreInitializeObjectsMap (List<Object> preInitializedObjects) throws DependencyInjectionException {
+	private void buildDependencyInjectionOfInterfacesAndImplementations (final String implementationPackage, @Nullable final Class<?> interfaceToResolve
+			                                                            ,@Nullable final List<Object> preInitializedObjects) throws DependencyInjectionException {
+			
+		// Gets classes of interfaces with Injectable annotation
+		Set<Class<?>> interfaceClasses = getInterfaceClassesWithInjectableAnnotation (interfaceToResolve);
+		if (interfaceClasses != null) {
 
-		Map<String, Object> preInitializedObjectsMap = new HashMap<String, Object>();
-		if (preInitializedObjects != null) {
+			// Gets implementations
+			Reflections implementationReflections = new Reflections (new ConfigurationBuilder()
+                                                                        .filterInputsBy (new FilterBuilder().includePackage (implementationPackage))
+                                                                        .setUrls (ClasspathHelper.forPackage (implementationPackage))
+                                                                        .setScanners (new SubTypesScanner()
+                                                                                     ,new TypeAnnotationsScanner())
+                                                                        .setExecutorService (Executors.newFixedThreadPool (numberOfParallelThreads)));
+			// Gets a map of preinitialized objects easy to use
+			Map<String, Object> preInitializedObjectsMap = structurePreInitializeObjects (preInitializedObjects);
 
-			for (Object preInitializedObject : preInitializedObjects) {
+			// Links the interface with its implementation
+			for (Class<?> interfaceClazz : interfaceClasses) {
 
-				String key = preInitializedObject.getClass().getCanonicalName();
-				if (preInitializedObjectsMap.containsKey (key))
-					throw new DependencyInjectionException ("In the preinitialized list of objects, the class: " + key 
-							                              + " appears more than once");
+				Set<?> implementationClasses = implementationReflections.getSubTypesOf (interfaceClazz);
+				if (implementationClasses == null || implementationClasses.isEmpty())
+					throw new DependencyInjectionException ("The interface " + interfaceClazz.getCanonicalName()
+                                                          + " has not an implementation");
 
-				preInitializedObjectsMap.put (key, preInitializedObject);
+				// Insert in the "equivalence Map": interface -> implementation
+				for (Object implementationClass : implementationClasses) {
+
+					try {
+						Class<?> implementationClazz = Class.forName (implementationClass.toString().replace("class ", ""));
+
+						// Stores the relation between interfaceClazz and implementationClazz
+						internalBind (interfaceClazz, implementationClazz, false, preInitializedObjectsMap.get (implementationClazz.getCanonicalName()));
+
+					} catch (Exception e) {
+						throw new DependencyInjectionException (e);
+					}
+				}
 			}
 		}
-		return preInitializedObjectsMap;
 	}
 
 
 	/**
-	 *   Searches in the additional resolvers the implementation of a given property
-	 * annotated with {@link WithDependencyInjection} interface.
+	 *   Searches in the additional resolvers the implementation of a given property annotated
+	 * with {@link WithDependencyInjection}.
 	 * 
 	 * @param field
 	 *    Property for which we need to find its implementation
@@ -407,13 +359,10 @@ public class DependencyInjectionResolver {
 	private Object findInAdditionalResolversTheImplementation (Field field) throws DependencyInjectionException {
 
 		// Gets qualifier value (in WithDependencyInjection annotation) of current property
-		String qualifierValue = null;
-		WithDependencyInjection annotation = (WithDependencyInjection)field.getAnnotation (WithDependencyInjection.class);
-		if (annotation != null)
-			qualifierValue = annotation.qualifier();
+		String qualifierValue = this.internalInformationOfResolver.getQualifierValueInWithDependencyInjectionAnnotation (field);
 
 		for (DependencyInjectionResolver additionalResolver : DependencyInjectionPool.instance()
-				                                                                     .getResolversLessGivenInterfacePackage (interfacesPackage)) {
+				                                                                     .getResolversLessGivenInterfacePackage (getInterfacesPackage())) {
 			try {
 				Object implementation = additionalResolver.getImplementation ((Class<?>) field.getType(), qualifierValue);
 				if (implementation != null)
@@ -437,11 +386,11 @@ public class DependencyInjectionResolver {
 
 		// Get "injectable interfaces"
 		Reflections interfaceReflections = new Reflections (new ConfigurationBuilder()
-                                                               .filterInputsBy (new FilterBuilder().includePackage (interfacesPackage))
-                                                               .setUrls (ClasspathHelper.forPackage (interfacesPackage))
+                                                               .filterInputsBy (new FilterBuilder().includePackage (this.internalInformationOfResolver.getInterfacesPackage()))
+                                                               .setUrls (ClasspathHelper.forPackage (this.internalInformationOfResolver.getInterfacesPackage()))
                                                                .setScanners (new SubTypesScanner()
                                                                             ,new TypeAnnotationsScanner())
-                                                               .setExecutorService (Executors.newFixedThreadPool (2)));
+                                                               .setExecutorService (Executors.newFixedThreadPool (numberOfParallelThreads)));
 
 		Set<Class<?>> interfaceClasses = interfaceReflections.getTypesAnnotatedWith (Injectable.class);
 
@@ -461,59 +410,45 @@ public class DependencyInjectionResolver {
 
 
 	/**
-	 *    Returns the value of qualifier of {@link DependencyInjectionQualifier} annotation
-	 * of a class.
+	 * Binds one interface with its implementation.
 	 * 
+	 * @param interfaceClazz
+	 *    Class of interface
 	 * @param implementationClazz
-	 *    Class that implements an {@link Injectable} interface
+	 *    Class of implementation
+	 * @param overwriteImplementation
+	 *    If false and exists other implementation for the given interface a DependencyInjectionException will be throw.
+	 *    If true, always overwrite the existing implementation of the given interface with the given implementation.
+	 * @param preinitializedObject
+	 *    Object that the user has initialized for the given implementationClazz (for example, because he/she does not want
+	 * to use the default constructor)
 	 * 
-	 * @return value of qualifier function
+	 * @throws DependencyInjectionException
 	 */
-	private String getQualifierValueInDependencyInjectionQualifierAnnotation (Class<?> implementationClazz) {
-
-		String qualifierValue = null;
-		DependencyInjectionQualifier annotation = (DependencyInjectionQualifier)implementationClazz.getAnnotation (DependencyInjectionQualifier.class);
-		if (annotation != null)
-			qualifierValue = annotation.value();
-
-		return qualifierValue;
+	private void internalBind (final Class<?> interfaceClazz, final Class<?> implementationClazz, boolean overwriteImplementation
+			                  ,@Nullable final Object preinitializedObject) throws DependencyInjectionException {
+		try {
+			this.internalInformationOfResolver.addInformationOfElementToInject (interfaceClazz, implementationClazz, overwriteImplementation
+					                                                           ,preinitializedObject);
+		} catch (Exception e) {
+			throw new DependencyInjectionException (e);
+		}
 	}
 
 
 	/**
-	 *    Returns the value of qualifier of {@link WithDependencyInjection} annotation
-	 * of a property.
+	 * Resolves the properties within the given object (the properties with the {@link WithDependencyInjection} annotation)
 	 * 
-	 * @param field
-	 *    Property of a class that implements an {@link Injectable} interface
-	 * 
-	 * @return value of qualifier function
-	 */
-	private String getQualifierValueInWithDependencyInjectionAnnotation (Field field) {
-
-		String qualifierValue = null;
-		WithDependencyInjection annotation = (WithDependencyInjection)field.getAnnotation (WithDependencyInjection.class);
-		if (annotation != null)
-			qualifierValue = annotation.qualifier();
-
-		return qualifierValue;
-	}
-
-
-	/**
-	 *    Resolves the dependencies within the class clazz (the properties
-	 * with the {@link WithDependencyInjection} annotation).
-	 * 
-	 * @param clazz
-	 *    Class of "implementation"
+	 * @param implementationObject
+	 *    Object whose properties need to be resolved using dependency injection 
 	 *    
 	 * @throws DependencyInjectionException
 	 */
 	@SuppressWarnings({ "unchecked" })
-	private void resolveDependenciesOfClass (Object clazz) throws DependencyInjectionException {
+	private void resolvePropertiesOfImplementation (Object implementationObject) throws DependencyInjectionException {
 
 		// Get all clazz properties with WithDependencyInjection annotation
-		Set<Field> clazzProperties = ReflectionUtils.getAllFields (clazz.getClass(),
+		Set<Field> clazzProperties = ReflectionUtils.getAllFields (implementationObject.getClass(),
 				                                                   ReflectionUtils.withAnnotation (WithDependencyInjection.class));
 		if (clazzProperties != null) {
 
@@ -523,21 +458,18 @@ public class DependencyInjectionResolver {
 				field.setAccessible (true);
 				try {
 					// Searching inside "current resolver"
-					Object clazzPropertyImplementation = interfaceImplementationEquivalence.get (
-							                                buildKeyInInterfaceImplementationEquivalence (field.getType()
-								                                                                         ,getQualifierValueInWithDependencyInjectionAnnotation (
-								                                                                             field)));
+					Object clazzPropertyImplementation = this.internalInformationOfResolver.getImplementationOfField (field);
 					if (clazzPropertyImplementation != null)
-						field.set (clazz, clazzPropertyImplementation);
+						field.set (implementationObject, clazzPropertyImplementation);
 
 					// Searching inside other dependency injection resolvers
 					else {
 						Object otherClazzPropertyImplementation = findInAdditionalResolversTheImplementation (field);
 						if (otherClazzPropertyImplementation != null)
-							field.set (clazz, otherClazzPropertyImplementation);
+							field.set (implementationObject, otherClazzPropertyImplementation);
 						else
 							throw new DependencyInjectionException ("The property: " + field.getName() + " in the class: "
-									                              + clazz.getClass().getCanonicalName() 
+									                              + implementationObject.getClass().getCanonicalName() 
 									                              + "  has not an implementation");
 					}
 				} catch (Exception e) {
@@ -548,6 +480,37 @@ public class DependencyInjectionResolver {
 				}
 			}
 		}
+	}
+
+
+	/**
+	 *    Uses the given {@link List} of preinitialized objects and generates a {@link Map} 
+	 * with the following content:
+	 * 
+	 *  - Key: canonical name of class of the preinitialized object.
+	 *  - Value: preinitialized object.
+	 *  
+	 * @param preInitializedObjects
+	 *    {@link List} of {@link Object}s preinitialized by the user
+	 *    
+	 * @throws DependencyInjectionException
+	 */
+	private Map<String, Object> structurePreInitializeObjects (List<Object> preInitializedObjects) throws DependencyInjectionException {
+
+		Map<String, Object> preInitializedObjectsMap = new HashMap<String, Object> (preInitializedObjects == null ? 0 : preInitializedObjects.size());
+		if (preInitializedObjects != null) {
+
+			for (Object preInitializedObject : preInitializedObjects) {
+
+				String key = preInitializedObject.getClass().getCanonicalName();
+				if (preInitializedObjectsMap.containsKey (key))
+					throw new DependencyInjectionException ("In the preinitialized list of objects, the class: " + key 
+							                              + " appears more than once");
+
+				preInitializedObjectsMap.put (key, preInitializedObject);
+			}
+		}
+		return preInitializedObjectsMap;
 	}
 
 }

@@ -13,5 +13,5 @@ import java.lang.annotation.Target;
 @Retention(RUNTIME)
 public @interface WithDependencyInjection {
 
-	String qualifier() default "";
+	String value() default "";
 }

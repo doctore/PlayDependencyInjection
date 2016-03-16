@@ -173,7 +173,7 @@ public class DependencyInjectionResolverTest {
 				      resolver.getImplementation (ITestInterfaceSimple.class, null).testSimpleInterface());
 
 		// Binds to the "alternative implementation"
-		resolver.bind (ITestInterfaceSimple.class, ImplementationSimpleAlt.class);
+		resolver.bind (ITestInterfaceSimple.class, ImplementationSimpleAlt.class, null);
 		assertFalse (resolver.getImplementation (ITestInterfaceSimple.class, null).getClass() == ImplementationSimple.class);
 		assertTrue (resolver.getImplementation (ITestInterfaceSimple.class, null).getClass() == ImplementationSimpleAlt.class);
 
@@ -187,8 +187,8 @@ public class DependencyInjectionResolverTest {
 
 		DependencyInjectionResolver resolver = new DependencyInjectionResolver (Constants.simpleDILInterfacesPath);
 
-		resolver.bind (ITestInterfaceNested.class, ImplementationNested.class)
-		        .bind (ITestInterfaceSimple.class, ImplementationSimpleAlt.class)
+		resolver.bind (ITestInterfaceNested.class, ImplementationNested.class, null)
+		        .bind (ITestInterfaceSimple.class, ImplementationSimpleAlt.class, null)
                 .resolveDependenciesOfInterface (ITestInterfaceNested.class, null);
 
 		assertNotNull (resolver.getImplementation (ITestInterfaceNested.class, null));
@@ -360,38 +360,17 @@ public class DependencyInjectionResolverTest {
 			         ,resolver.getImplementation (ITestInterfacePreInitializedObjectsOne.class, qualifierValue).getValueOfPrivateStringProperty());
 
 		// ITestInterfacePreInitializedObjectsTwo
-		boolean throwsException = false;
-		try {
-			resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, null);
-
-		} catch (DependencyInjectionException e) {
-			throwsException = true;
-		}
-		assertTrue (throwsException);
+		assertNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, null));
 
 		qualifierValue = null;
 		annotation = (DependencyInjectionQualifier)ImplementationPreInitializedObjectsTwo_Initialized.class.getAnnotation (DependencyInjectionQualifier.class);
 		if (annotation != null)
 			qualifierValue = annotation.value();
 
-		throwsException = false;
-		try {
-			resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, qualifierValue);
-
-		} catch (DependencyInjectionException e) {
-			throwsException = true;
-		}
-		assertTrue (throwsException);
+		assertNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsTwo.class, qualifierValue));
 
 		// ITestInterfacePreInitializedObjectsThree
-		throwsException = false;
-		try {
-			resolver.getImplementation (ITestInterfacePreInitializedObjectsThree.class, qualifierValue);
-
-		} catch (DependencyInjectionException e) {
-			throwsException = true;
-		}
-		assertTrue (throwsException);
+		assertNull (resolver.getImplementation (ITestInterfacePreInitializedObjectsThree.class, qualifierValue));
 	}
 
 }

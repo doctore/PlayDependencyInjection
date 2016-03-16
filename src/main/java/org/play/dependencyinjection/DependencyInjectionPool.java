@@ -137,4 +137,21 @@ public class DependencyInjectionPool {
 		return result;
 	}
 
+
+	/**
+	 * Deletes the information contained in the stored {@link DependencyInjectionResolver}
+	 * 
+	 * <h1><strong>IMPORTANT: Use only when we will stop the application</strong></h1></br>
+	 */
+	public void destroyResources() {
+
+		if (this.resolversPool != null) {
+			
+			for (DependencyInjectionResolver dependencyInjectionResolver : this.resolversPool.values())
+				dependencyInjectionResolver.destroyResources();
+
+			this.resolversPool.clear();
+		}
+	}
+
 }

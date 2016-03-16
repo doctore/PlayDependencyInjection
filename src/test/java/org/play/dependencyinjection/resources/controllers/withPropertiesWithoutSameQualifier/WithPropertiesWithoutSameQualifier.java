@@ -6,7 +6,7 @@ import org.play.dependencyinjection.resources.dependencyInjectionLayer.manyImple
 
 public class WithPropertiesWithoutSameQualifier extends ParentController {
 
-	@WithDependencyInjection(qualifier="implementationOne")
+	@WithDependencyInjection("implementationOne")
 	private static ITestInterfaceManyImplementationsWithoutSameQualifier iTestInterfaceManyImplWSQOne;
 
 	@WithDependencyInjection
