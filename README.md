@@ -1,6 +1,6 @@
 # Play dependency injection
 
-- [Why this project was created?](#why-this-project-was-created)
+- [Why was this project created?](#why-was-this-project-created)
 - [Elements included in this project](#elements-included-in-this-project)
     - [Annotations](#annotations)
     - [Classes](#classes)
@@ -8,7 +8,7 @@
 - [Different implementations of the same interface](#different-implementations-of-the-same-interface)
 - [Using a list of preinitialized objects](#using-a-list-of-preinitialized-objects)
 
-## Why this project was created?
+## Why was this project created?
 
 When we want to include dependency injection in a Play project, the most important choices we have are:
 
